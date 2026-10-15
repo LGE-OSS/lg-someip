@@ -1,9 +1,12 @@
 # CMake build trees and generated metadata
 /build/
+/build-pi/
 /build-tests/
 /test_report/
 /tests/test_report/
 /cmake-build-*/
+/performance-measurement/*/build/
+/performance-measurement/*/build-*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -46,3 +49,9 @@ install_manifest.txt
 *.swp
 .DS_Store
 Thumbs.db
+
+# Performance measurement output
+/performance-measurement/results/
+/perf-run*/
+/REVISION
+__pycache__/

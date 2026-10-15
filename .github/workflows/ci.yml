@@ -26,7 +26,7 @@ jobs:
 
       - name: Check formatting
         run: |
-          find src daemon examples/someip tests tools -type f \
+          find src daemon examples/someip performance-measurement tests tools -type f \
             \( -name '*.h' -o -name '*.hpp' -o -name '*.cpp' -o -name '*.cc' \) \
             -print0 | xargs -0 clang-format-18 --dry-run --Werror
 
@@ -63,7 +63,7 @@ jobs:
 
       - name: Run clang-tidy
         run: |
-          find src daemon examples/someip tests tools -type f -name '*.cpp' -print0 \
+          find src daemon examples/someip performance-measurement tests tools -type f -name '*.cpp' -print0 \
             | xargs -0 clang-tidy-18 -p build-ci-tidy --quiet
 
   build:

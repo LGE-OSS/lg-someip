@@ -55,7 +55,7 @@ option(ENABLE_SOMEIP_DELIVERY_STATISTICS "Enable SOME/IP packet delivery statist
 option(ENABLE_TEST_BUILD "Build unit tests and coverage instrumentation" OFF)
 option(ENABLE_EXAMPLES "Build example applications" ON)
 option(ENABLE_TOOLS "Build diagnostic tools" ON)
-option(ENABLE_SOMEIP_IPC "Enable extended SOME/IP IPC routing support" OFF)
+option(ENABLE_SOMEIP_IPC "Enable extended SOME/IP IPC routing support" ON)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "QNX")
     set(_enable_qnx_message_passing_default ON)
@@ -211,6 +211,7 @@ endif()
 if(ENABLE_EXAMPLES AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_subdirectory(${LGSOMEIP_SOURCE_DIR}/examples/someip/simple-event ${LGSOMEIP_BINARY_DIR}/examples/someip/simple-event)
     add_subdirectory(${LGSOMEIP_SOURCE_DIR}/examples/someip/simple-method ${LGSOMEIP_BINARY_DIR}/examples/someip/simple-method)
+    add_subdirectory(${LGSOMEIP_SOURCE_DIR}/performance-measurement/lg-someip ${LGSOMEIP_BINARY_DIR}/performance-measurement/lg-someip)
 endif()
 
 if(ENABLE_TEST_BUILD AND BUILD_TESTING)

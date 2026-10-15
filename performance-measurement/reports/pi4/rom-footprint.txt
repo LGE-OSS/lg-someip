@@ -1,0 +1,25 @@
+== lgsomeip-consumer
+  someip-daemon                                                     516.2 KB
+  liblgsomeip.so                                                    838.2 KB
+  libc.so.6                                                    not counted (system library)
+  libgcc_s.so.1                                                not counted (system library)
+  libm.so.6                                                    not counted (system library)
+  libstdc++.so.6.0.33                                          not counted (system library)
+  perf-rpc-client                                                   130.9 KB
+  total (stripped)                                                 1485.3 KB
+== vsomeip-consumer
+  routingmanagerd                                                    66.0 KB
+  libvsomeip3.so.3.7.6                                             2820.3 KB
+  libc.so.6                                                    not counted (system library)
+  libgcc_s.so.1                                                not counted (system library)
+  libm.so.6                                                    not counted (system library)
+  libstdc++.so.6.0.33                                          not counted (system library)
+  perf-rpc-client                                                   130.9 KB
+  total (stripped)                                                 3017.2 KB
+== opensomeip-consumer
+  perf-rpc-client                                                   195.2 KB
+  libc.so.6                                                    not counted (system library)
+  libgcc_s.so.1                                                not counted (system library)
+  libm.so.6                                                    not counted (system library)
+  libstdc++.so.6.0.33                                          not counted (system library)
+  total (stripped)                                                  195.2 KB
