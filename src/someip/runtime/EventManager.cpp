@@ -136,7 +136,7 @@ void EventManager::notify(std::uint16_t service_id, std::uint16_t instance_id, s
     // Update the registered event payload.
     for (auto& event : offered_events_) {
         if (event->service_id_ == service_id && event->instance_id_ == instance_id && event->event_id_ == event_id) {
-            event->set_payload(*payload, client, force);
+            event->set_payload(*payload, client, force, flush);
             break;
         }
     }
@@ -268,12 +268,6 @@ void OfferedEvent::set_payload(Payload& event_payload, std::uint16_t client, boo
             return;
         }
 
-        if (client > 0) { // for notify_one
-            std::uint32_t sessionid = static_cast<std::uint32_t>(request_id_ & 0x0000ffff);
-            std::uint32_t clientid = static_cast<std::uint32_t>(client) << 16;
-            request_id_ = (clientid | sessionid);
-        }
-
         auto payload = notification_->get_payload_type();
 
         switch (strategy_) {
@@ -288,13 +282,15 @@ void OfferedEvent::set_payload(Payload& event_payload, std::uint16_t client, boo
                                        << " / CyclicUpdate success to set initial message!";
                     initialized_ = true;
                 }
-                lock.unlock();
             }
+            // send() takes mutex_ itself, so release it first even when the payload was unchanged.
+            lock.unlock();
             if (flush) {
                 send(update_cycle_);
             }
             break;
         case EventStrategy::UpdateOnChange:
+            // Update on change (SOME/IP spec 6.4.1): send only when the value changes, event or field alike.
             if (payload->get_length() != event_payload.get_length() ||
                 payload->get_payload_vector() != event_payload.get_payload_vector() || force) {
                 notification_->set_payload(event_payload.get_payload(), event_payload.get_length());
@@ -306,7 +302,7 @@ void OfferedEvent::set_payload(Payload& event_payload, std::uint16_t client, boo
                     initialized_ = true;
                 }
                 lock.unlock();
-                send(0);
+                send(0, client);
             } else {
                 LGSOMEIP_LOG_INFO << "OfferedEvent::set_payload "
                                   << format_service_instance_event_id(this->service_id_, this->instance_id_,
@@ -325,7 +321,7 @@ void OfferedEvent::set_payload(Payload& event_payload, std::uint16_t client, boo
                     initialized_ = true;
                 }
                 lock.unlock();
-                send(0);
+                send(0, client);
             }
             break;
         default:
@@ -335,7 +331,7 @@ void OfferedEvent::set_payload(Payload& event_payload, std::uint16_t client, boo
     }
 }
 
-void OfferedEvent::send(std::uint32_t interval) {
+void OfferedEvent::send(std::uint32_t interval, std::uint16_t client) {
     std::unique_lock<std::mutex> lock(mutex_);
 
     if (!service_enabled_) {
@@ -358,7 +354,7 @@ void OfferedEvent::send(std::uint32_t interval) {
     if ((strategy_ == EventStrategy::UpdateOnChange || strategy_ == EventStrategy::EpsilonChange) && interval == 0) {
         LGSOMEIP_LOG_DEBUG << "OfferedEvent::send (UpdateOnChange or EpsilonChange) / "
                            << format_service_instance_event_id(this->service_id_, this->instance_id_, this->event_id_);
-        send_notification();
+        send_notification(client);
     }
 
     // Case 2 : Cyclic Update
@@ -397,10 +393,12 @@ void OfferedEvent::send_initial_event() {
     }
 }
 
-void OfferedEvent::send_notification() {
+void OfferedEvent::send_notification(std::uint16_t client) {
     if (host_ != nullptr) {
-        request_id_ = (request_id_ % 0x0000FFFF) + 1;
-        notification_->set_request_id(request_id_);
+        // The session ID runs from 1 to 0xFFFF and wraps to 1. The upper 16 bits carry the single target client
+        // of notify_one() for the packet router; 0 addresses every subscriber.
+        session_id_ = (session_id_ % 0x0000FFFF) + 1;
+        notification_->set_request_id((static_cast<std::uint32_t>(client) << 16) | session_id_);
         notification_->set_instance_id(instance_id_);
         host_->send(notification_);
     }
