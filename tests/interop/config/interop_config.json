@@ -1,0 +1,80 @@
+{
+    "unicast" : "127.0.0.1",
+    "iptype" : "IPv4",
+    "someiptpmaxpayloadsize" : "65536",
+    "logging" :
+    {
+        "level" : "info"
+    },
+    "applications" :
+    [
+        {
+            "name" : "interop-server",
+            "id" : "0x0311"
+        },
+        {
+            "name" : "interop-client",
+            "id" : "0x0321"
+        },
+        {
+            "name" : "interop-sub-1",
+            "id" : "0x0331"
+        },
+        {
+            "name" : "interop-sub-2",
+            "id" : "0x0332"
+        }
+    ],
+    "services" :
+    [
+        {
+            "service" : "0x2001",
+            "instance" : "0x0001",
+            "unreliable" : "30609",
+            "is-provider" : "true",
+            "reliable" : { "port" : "30609", "enable-magic-cookies" : "false" },
+            "events" :
+            [
+                { "event" : "0x8001", "is_field" : "false", "update-cycle" : "0" },
+                { "event" : "0x8002", "is_field" : "false", "update-cycle" : "0" },
+                { "event" : "0x8003", "is_field" : "true",  "update-cycle" : "0" },
+                { "event" : "0x8011", "is_field" : "false", "update-cycle" : "0" },
+                { "event" : "0x8012", "is_field" : "false", "update-cycle" : "0" }
+            ],
+            "eventgroups" :
+            [
+                {
+                    "eventgroup" : "0x0100",
+                    "events" : [ "0x8001", "0x8002", "0x8003" ],
+                    "is_multicast" : "false",
+                    "threshold" : "0"
+                },
+                {
+                    "eventgroup" : "0x0200",
+                    "events" : [ "0x8011", "0x8012" ],
+                    "is_multicast" : "true",
+                    "threshold" : "2",
+                    "multicast" :
+                    {
+                        "address" : "224.225.226.235",
+                        "port" : "32345"
+                    }
+                }
+            ]
+        }
+    ],
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "224.244.224.245",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "100",
+        "repetitions_base_delay" : "200",
+        "repetitions_max" : "3",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "2000",
+        "request_response_delay" : "1500"
+    }
+}
