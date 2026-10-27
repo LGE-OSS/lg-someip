@@ -30,9 +30,29 @@
         {
             "service" : "0x2001",
             "instance" : "0x0001",
-            "unreliable" : "30609",
             "is-provider" : "true",
             "reliable" : { "port" : "30609", "enable-magic-cookies" : "false" },
+            "events" :
+            [
+                { "event" : "0x8001", "is_field" : "false", "update-cycle" : "0" },
+                { "event" : "0x8002", "is_field" : "false", "update-cycle" : "0" },
+                { "event" : "0x8003", "is_field" : "true",  "update-cycle" : "0" }
+            ],
+            "eventgroups" :
+            [
+                {
+                    "eventgroup" : "0x0100",
+                    "events" : [ "0x8001", "0x8002", "0x8003" ],
+                    "is_multicast" : "false",
+                    "threshold" : "0"
+                }
+            ]
+        },
+        {
+            "service" : "0x2001",
+            "instance" : "0x0002",
+            "is-provider" : "true",
+            "unreliable" : "30610",
             "events" :
             [
                 { "event" : "0x8001", "is_field" : "false", "update-cycle" : "0" },

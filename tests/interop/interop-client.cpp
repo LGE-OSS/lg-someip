@@ -34,12 +34,17 @@
 
 // Method tests against interop-server.
 //
-//   interop-client [--app name] [--large] [--timeout seconds] [--wait seconds]
+//   interop-client [--tcp | --udp] [--app name] [--large] [--timeout seconds] [--wait seconds]
 //
+//   --tcp      send the requests over TCP, service instance 0x0001 (default)
+//   --udp      send the requests over UDP, service instance 0x0002
 //   --app      application name from the configuration (default interop-client)
-//   --large    also send the 4000 and 30000 byte payloads (need a transport that carries them)
+//   --large    also send the 4000 and 30000 byte payloads (TCP only, UDP cannot carry them)
 //   --timeout  wait per request (default 5)
 //   --wait     wait for the service to become available (default 30)
+//
+// Run the client once per transport to test both. The selected instance is the
+// only one the client requests, so every request travels over exactly one transport.
 //
 // Checks: every test vector goes to the server, which verifies it independently
 // and answers with a payload it serialized itself; the answer is verified here
@@ -58,12 +63,15 @@ namespace interop = lgsomeip::interop;
 
 struct Options {
     std::string app{"interop-client"};
+    interop::Transport transport{interop::Transport::Tcp};
+    bool transport_set{false};
     bool large{false};
     int timeout_s{5};
     int wait_s{30};
 };
 
 std::shared_ptr<lgsomeip::api::Application> application;
+lgsomeip::api::instance_t instance = interop::kInstanceTcp;
 bool service_requested = false;
 
 std::mutex mutex;
@@ -89,7 +97,7 @@ void on_availability(lgsomeip::api::service_t, lgsomeip::api::instance_t, bool a
 
 void on_state(bool registered) {
     if (registered && !service_requested) {
-        application->request_service(interop::kServiceId, interop::kInstanceId, interop::kMajorVersion);
+        application->request_service(interop::kServiceId, instance, interop::kMajorVersion);
         service_requested = true;
     }
 }
@@ -102,7 +110,7 @@ bool wait_for_service(int seconds) {
 Message make_request(lgsomeip::api::method_t method, Payload payload = {}, MessageType type = MessageType::Request) {
     Message request;
     request.service = interop::kServiceId;
-    request.instance = interop::kInstanceId;
+    request.instance = instance;
     request.method = method;
     request.interface_version = interop::kMajorVersion;
     request.type = type;
@@ -192,7 +200,7 @@ int run_vectors(const Options& options) {
     for (const auto& vector : interop::vectors()) {
         if (vector.large && !options.large) {
             counters.skipped++;
-            std::cout << "SKIP  " << vector.name << " (use --large)" << std::endl;
+            std::cout << "SKIP  " << vector.name << " (use --tcp --large)" << std::endl;
             continue;
         }
         executed++;
@@ -295,7 +303,14 @@ bool parse(int argc, char** argv, Options& options) {
     for (int i = 1; i < argc; i++) {
         const std::string arg = argv[i];
         const bool has_value = i + 1 < argc;
-        if (arg == "--large") {
+        if (arg == "--tcp" || arg == "--udp") {
+            const auto transport = arg == "--tcp" ? interop::Transport::Tcp : interop::Transport::Udp;
+            if (options.transport_set && options.transport != transport) {
+                return false; // --tcp and --udp exclude each other
+            }
+            options.transport = transport;
+            options.transport_set = true;
+        } else if (arg == "--large") {
             options.large = true;
         } else if (arg == "--app" && has_value) {
             options.app = argv[++i];
@@ -307,7 +322,8 @@ bool parse(int argc, char** argv, Options& options) {
             return false;
         }
     }
-    return options.timeout_s > 0 && options.wait_s > 0;
+    const bool large_ok = !options.large || options.transport == interop::Transport::Tcp;
+    return large_ok && options.timeout_s > 0 && options.wait_s > 0;
 }
 
 } // namespace
@@ -315,9 +331,11 @@ bool parse(int argc, char** argv, Options& options) {
 int main(int argc, char** argv) {
     Options options;
     if (!parse(argc, argv, options)) {
-        std::cerr << "usage: " << argv[0] << " [--app name] [--large] [--timeout s] [--wait s]" << std::endl;
+        std::cerr << "usage: " << argv[0] << " [--tcp | --udp] [--app name] [--large (TCP only)] [--timeout s]"
+                  << " [--wait s]" << std::endl;
         return 2;
     }
+    instance = interop::instance_of(options.transport);
 
     application = lgsomeip::api::Runtime::instance().create_application(options.app);
     if (!application->init()) {
@@ -326,14 +344,14 @@ int main(int argc, char** argv) {
 
     // Install callbacks before start() so no response can arrive unhandled.
     application->register_application_state_handler(on_state);
-    application->register_availability_handler(interop::kServiceId, interop::kInstanceId, on_availability,
+    application->register_availability_handler(interop::kServiceId, instance, on_availability,
                                                interop::kMajorVersion);
     for (const auto& vector : interop::vectors()) {
-        application->register_message_handler(interop::kServiceId, interop::kInstanceId, vector.method, on_message);
+        application->register_message_handler(interop::kServiceId, instance, vector.method, on_message);
     }
     for (const auto method : {interop::kMethodReset, interop::kMethodReport, interop::kMethodNoReturnCount,
                               interop::kMethodError, interop::kMethodEcho}) {
-        application->register_message_handler(interop::kServiceId, interop::kInstanceId, method, on_message);
+        application->register_message_handler(interop::kServiceId, instance, method, on_message);
     }
     application->start();
 
@@ -350,6 +368,9 @@ int main(int argc, char** argv) {
         application->stop();
         return 1;
     }
+
+    std::cout << "transport: " << (options.transport == interop::Transport::Tcp ? "TCP" : "UDP") << " (instance 0x"
+              << std::hex << instance << std::dec << ")" << std::endl;
 
     const int executed = run_vectors(options);
     run_no_return(options);

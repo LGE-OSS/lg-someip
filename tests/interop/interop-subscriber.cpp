@@ -30,10 +30,13 @@
 
 // Event consumer test against interop-server.
 //
-//   interop-subscriber [--app name] [--group unicast|multicast|all] [--count N] [--timeout seconds]
+//   interop-subscriber [--tcp | --udp] [--app name] [--group unicast|multicast|all] [--count N] [--timeout seconds]
 //
+//   --tcp      subscribe to the TCP instance 0x0001 (default); it has the unicast group only
+//   --udp      subscribe to the UDP instance 0x0002; it has the unicast and the multicast group
 //   --app      application name from the configuration (default interop-sub-1)
-//   --group    event groups to subscribe to (default all)
+//   --group    event groups to subscribe to (default all groups of the transport);
+//              multicast needs --udp
 //   --count    notifications required per event (default 5); a field event
 //              needs one, because its value only changes when the server changes it
 //   --timeout  total wait for the notifications (default 30)
@@ -42,8 +45,8 @@
 // bytes and decode with the library deserializer. The unicast group carries
 // events 0x8001-0x8003 (0x8003 is a field). The multicast group carries
 // 0x8011-0x8012; the subscriber cannot see whether it arrived by unicast or
-// multicast. With the configuration's threshold of 2, run two subscribers and
-// look at the wire:
+// multicast. With the configuration's threshold of 2, run two subscribers with
+// --udp and look at the wire:
 //   tcpdump -ni <interface> 'udp and host 224.225.226.235'
 // Exit code: 0 when every event arrived intact, 1 otherwise, 2 on a usage error.
 namespace {
@@ -54,6 +57,8 @@ namespace interop = lgsomeip::interop;
 
 struct Options {
     std::string app{"interop-sub-1"};
+    interop::Transport transport{interop::Transport::Tcp};
+    bool transport_set{false};
     std::string group{"all"};
     int count{5};
     int timeout_s{30};
@@ -68,6 +73,7 @@ struct EventState {
 };
 
 std::shared_ptr<lgsomeip::api::Application> application;
+lgsomeip::api::instance_t instance = interop::kInstanceTcp;
 std::vector<interop::EventSpec> selected;
 bool events_requested = false;
 
@@ -129,16 +135,16 @@ void on_availability(lgsomeip::api::service_t, lgsomeip::api::instance_t, bool a
         }
     }
     for (const auto group : groups) {
-        application->subscribe(interop::kServiceId, interop::kInstanceId, group, interop::kMajorVersion);
+        application->subscribe(interop::kServiceId, instance, group, interop::kMajorVersion);
     }
 }
 
 void on_state(bool registered) {
     if (registered && !events_requested) {
         for (const auto& spec : selected) {
-            application->request_event(interop::kServiceId, interop::kInstanceId, spec.event, {spec.group});
+            application->request_event(interop::kServiceId, instance, spec.event, {spec.group});
         }
-        application->request_service(interop::kServiceId, interop::kInstanceId, interop::kMajorVersion);
+        application->request_service(interop::kServiceId, instance, interop::kMajorVersion);
         events_requested = true;
     }
 }
@@ -160,7 +166,14 @@ bool parse(int argc, char** argv, Options& options) {
     for (int i = 1; i < argc; i++) {
         const std::string arg = argv[i];
         const bool has_value = i + 1 < argc;
-        if (arg == "--app" && has_value) {
+        if (arg == "--tcp" || arg == "--udp") {
+            const auto transport = arg == "--tcp" ? interop::Transport::Tcp : interop::Transport::Udp;
+            if (options.transport_set && options.transport != transport) {
+                return false; // --tcp and --udp exclude each other
+            }
+            options.transport = transport;
+            options.transport_set = true;
+        } else if (arg == "--app" && has_value) {
             options.app = argv[++i];
         } else if (arg == "--group" && has_value) {
             options.group = argv[++i];
@@ -173,7 +186,9 @@ bool parse(int argc, char** argv, Options& options) {
         }
     }
     const bool group_ok = options.group == "all" || options.group == "unicast" || options.group == "multicast";
-    return group_ok && options.count > 0 && options.timeout_s > 0;
+    // The multicast group exists on the UDP instance only.
+    const bool multicast_ok = options.group != "multicast" || options.transport == interop::Transport::Udp;
+    return group_ok && multicast_ok && options.count > 0 && options.timeout_s > 0;
 }
 
 } // namespace
@@ -181,13 +196,18 @@ bool parse(int argc, char** argv, Options& options) {
 int main(int argc, char** argv) {
     Options options;
     if (!parse(argc, argv, options)) {
-        std::cerr << "usage: " << argv[0] << " [--app name] [--group unicast|multicast|all] [--count N] [--timeout s]"
+        std::cerr << "usage: " << argv[0]
+                  << " [--tcp | --udp] [--app name] [--group unicast|multicast|all] [--count N] [--timeout s]"
                   << std::endl;
         return 2;
     }
+    instance = interop::instance_of(options.transport);
 
     for (const auto& spec : interop::events()) {
         const bool multicast = spec.group == interop::kGroupMulticast;
+        if (multicast && options.transport == interop::Transport::Tcp) {
+            continue; // the TCP instance has no multicast group
+        }
         if (options.group == "all" || (options.group == "multicast") == multicast) {
             selected.push_back(spec);
         }
@@ -198,9 +218,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     for (const auto& spec : selected) {
-        application->register_message_handler(interop::kServiceId, interop::kInstanceId, spec.event, on_message);
+        application->register_message_handler(interop::kServiceId, instance, spec.event, on_message);
     }
-    application->register_availability_handler(interop::kServiceId, interop::kInstanceId, on_availability,
+    application->register_availability_handler(interop::kServiceId, instance, on_availability,
                                                interop::kMajorVersion);
     application->register_application_state_handler(on_state);
     application->start();

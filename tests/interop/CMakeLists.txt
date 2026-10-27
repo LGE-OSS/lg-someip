@@ -19,16 +19,21 @@
 #   interop-client         method tests; prints PASS/FAIL, exit code 0 on success
 #   interop-subscriber     event tests including the multicast event group
 #
+# The service has one instance per transport (0x0001 TCP, 0x0002 UDP), so a run
+# tests exactly one transport: pass --tcp (default) or --udp to client/subscriber.
+#
 # Use config/interop_config.json on every host and set "unicast" to the address
 # of that host (and "is-provider" to true on the server host only).
 #
 # Run (the daemon must run on every host, see examples/config/README.md):
 #   export LGSOMEIP_CONFIGURATION=<path>/interop_config.json
 #   host A: interop-server
-#   host B: interop-client --large
-#           interop-subscriber --app interop-sub-1 --count 5
-#           interop-subscriber --app interop-sub-2 --count 5   (second subscriber
-#             reaches the multicast threshold of 2)
+#   host B: interop-client --tcp --large
+#           interop-client --udp
+#           interop-subscriber --tcp --app interop-sub-1 --count 5
+#           interop-subscriber --udp --app interop-sub-1 --count 5
+#           interop-subscriber --udp --app interop-sub-2 --count 5   (a second UDP
+#             subscriber reaches the multicast threshold of 2)
 # Multicast on the wire (host A or B):
 #   tcpdump -ni <interface> 'udp and host 224.225.226.235'
 

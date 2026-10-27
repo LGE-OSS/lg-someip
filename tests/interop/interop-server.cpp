@@ -29,14 +29,18 @@
 //
 //   interop-server [application-name]      default application name: interop-server
 //
+// The service is offered twice: instance 0x0001 over TCP and instance 0x0002 over
+// UDP (see InteropIds.h), so one server run serves clients of either transport.
+//
 // Methods: one method per test vector (see InteropVectors.cpp) plus a few control
 // methods (InteropIds.h). For each vector request the server checks the received
 // bytes against the golden bytes, decodes them with the library deserializer, and
 // answers with a payload it serialized itself. interop-client asks for the verdict
-// with kMethodReport.
+// with kMethodReport. The counters are shared by both instances.
 //
 // Events: every EventSpec is notified twice a second with the encoding of its
-// vector; interop-subscriber verifies them.
+// vector; interop-subscriber verifies them. The multicast group is offered by the
+// UDP instance only.
 namespace {
 
 using lgsomeip::api::Message;
@@ -44,6 +48,8 @@ using lgsomeip::api::MessageType;
 using lgsomeip::api::Payload;
 using lgsomeip::api::ReturnCode;
 namespace interop = lgsomeip::interop;
+
+const lgsomeip::api::instance_t kInstances[] = {interop::kInstanceTcp, interop::kInstanceUdp};
 
 std::shared_ptr<lgsomeip::api::Application> application;
 std::atomic<bool> registered{false};
@@ -157,21 +163,32 @@ void on_echo(const std::shared_ptr<Message>& request) {
     }
 }
 
+// Multicast is not available over TCP, so only the UDP instance has the multicast group.
+bool offers_event(lgsomeip::api::instance_t instance, const interop::EventSpec& spec) {
+    return instance == interop::kInstanceUdp || spec.group != interop::kGroupMulticast;
+}
+
 void on_state(bool is_registered) {
     registered = is_registered;
     if (!is_registered || offered) {
         return;
     }
 
-    for (const auto& spec : interop::events()) {
-        application->offer_event(interop::kServiceId, interop::kInstanceId, spec.event, {spec.group}, spec.is_field);
+    for (const auto instance : kInstances) {
+        for (const auto& spec : interop::events()) {
+            if (offers_event(instance, spec)) {
+                application->offer_event(interop::kServiceId, instance, spec.event, {spec.group}, spec.is_field);
+            }
+        }
+        application->offer_service(interop::kServiceId, instance, interop::kMajorVersion);
     }
-    application->offer_service(interop::kServiceId, interop::kInstanceId, interop::kMajorVersion);
     offered = true;
 }
 
-void register_provider_handler(lgsomeip::api::method_t method, lgsomeip::api::MessageHandler handler) {
-    application->register_message_handler(interop::kServiceId, interop::kInstanceId, method, std::move(handler), true);
+void register_provider_handler(lgsomeip::api::method_t method, const lgsomeip::api::MessageHandler& handler) {
+    for (const auto instance : kInstances) {
+        application->register_message_handler(interop::kServiceId, instance, method, handler, true);
+    }
 }
 
 } // namespace
@@ -197,14 +214,16 @@ int main(int argc, char** argv) {
 
     while (true) {
         if (registered && offered) {
-            for (const auto& spec : interop::events()) {
-                const interop::Vector* vector = interop::find_vector_by_name(spec.vector_name);
-                if (vector != nullptr) {
-                    // Update on change (spec 6.4.1) skips a payload equal to the previous one,
-                    // for an event and a field alike. Events repeat the same bytes on purpose,
-                    // so force them; a field is sent once and again only when its value changes.
-                    application->notify(interop::kServiceId, interop::kInstanceId, spec.event, vector->encode(),
-                                        !spec.is_field);
+            for (const auto instance : kInstances) {
+                for (const auto& spec : interop::events()) {
+                    const interop::Vector* vector = interop::find_vector_by_name(spec.vector_name);
+                    if (vector != nullptr && offers_event(instance, spec)) {
+                        // Update on change (spec 6.4.1) skips a payload equal to the previous one,
+                        // for an event and a field alike. Events repeat the same bytes on purpose,
+                        // so force them; a field is sent once and again only when its value changes.
+                        application->notify(interop::kServiceId, instance, spec.event, vector->encode(),
+                                            !spec.is_field);
+                    }
                 }
             }
         }
