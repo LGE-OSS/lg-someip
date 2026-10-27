@@ -220,8 +220,7 @@ int main(int argc, char** argv) {
     for (const auto& spec : selected) {
         application->register_message_handler(interop::kServiceId, instance, spec.event, on_message);
     }
-    application->register_availability_handler(interop::kServiceId, instance, on_availability,
-                                               interop::kMajorVersion);
+    application->register_availability_handler(interop::kServiceId, instance, on_availability, interop::kMajorVersion);
     application->register_application_state_handler(on_state);
     application->start();
 

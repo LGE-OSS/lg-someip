@@ -344,8 +344,7 @@ int main(int argc, char** argv) {
 
     // Install callbacks before start() so no response can arrive unhandled.
     application->register_application_state_handler(on_state);
-    application->register_availability_handler(interop::kServiceId, instance, on_availability,
-                                               interop::kMajorVersion);
+    application->register_availability_handler(interop::kServiceId, instance, on_availability, interop::kMajorVersion);
     for (const auto& vector : interop::vectors()) {
         application->register_message_handler(interop::kServiceId, instance, vector.method, on_message);
     }
