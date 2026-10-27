@@ -17,6 +17,7 @@
 #   interop-serialization  offline check of the serializer against golden bytes
 #   interop-server         service provider (methods and events)
 #   interop-client         method tests; prints PASS/FAIL, exit code 0 on success
+#   interop-subscriber     event tests including the multicast event group
 #
 # Use config/interop_config.json on every host and set "unicast" to the address
 # of that host (and "is-provider" to true on the server host only).
@@ -25,6 +26,11 @@
 #   export LGSOMEIP_CONFIGURATION=<path>/interop_config.json
 #   host A: interop-server
 #   host B: interop-client --large
+#           interop-subscriber --app interop-sub-1 --count 5
+#           interop-subscriber --app interop-sub-2 --count 5   (second subscriber
+#             reaches the multicast threshold of 2)
+# Multicast on the wire (host A or B):
+#   tcpdump -ni <interface> 'udp and host 224.225.226.235'
 
 add_library(interop-common STATIC common/InteropVectors.cpp)
 lgsomeip_configure_target(interop-common)
@@ -39,7 +45,8 @@ target_link_libraries(interop-common PUBLIC lgsomeip::api)
 foreach(INTEROP_APP IN ITEMS
         interop-serialization
         interop-server
-        interop-client)
+        interop-client
+        interop-subscriber)
     add_executable(${INTEROP_APP} ${INTEROP_APP}.cpp)
     lgsomeip_configure_target(${INTEROP_APP})
     target_link_libraries(${INTEROP_APP} PRIVATE interop-common lgsomeip::api ${ADDITIONAL_LIBS})
