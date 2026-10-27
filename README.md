@@ -115,6 +115,7 @@ the root `CMakeLists.txt` and are applied consistently to all project targets.
 | `ENABLE_SOMEIP_IPC` | `OFF` | Enable extended SOME/IP IPC routing support. |
 | `ENABLE_TEST_BUILD` | `OFF` | Build unit, component, and integration tests plus coverage instrumentation. Requires the standard CTest option `BUILD_TESTING=ON`. |
 | `ENABLE_EXAMPLES` | `ON` | Build example applications. |
+| `ENABLE_INTEROP_TESTS` | `OFF` | Build the interoperability test applications. See [tests/interop/README.md](tests/interop/README.md). |
 | `ENABLE_TOOLS` | `ON` | Build diagnostic tools. |
 
 The numeric settings use the same root CMake cache with
@@ -186,6 +187,10 @@ Unit tests isolate value, message, serialization, and utility behavior.
 Component tests exercise host or filesystem-backed components such as
 configuration parsing and network-device discovery. Integration tests exercise
 real sockets, multiplexers, the daemon, and application lifecycle behavior.
+
+Interoperability tests check serialization, methods, and events between two
+hosts over a real network. See [tests/interop/README.md](tests/interop/README.md)
+for the build and run steps.
 
 ## License
 
