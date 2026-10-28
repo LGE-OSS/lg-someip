@@ -54,6 +54,7 @@ option(ENABLE_SOMEIP_PACKET_FILTERING "Enable SOME/IP packet filtering" OFF)
 option(ENABLE_SOMEIP_DELIVERY_STATISTICS "Enable SOME/IP packet delivery statistics" OFF)
 option(ENABLE_TEST_BUILD "Build unit tests and coverage instrumentation" OFF)
 option(ENABLE_EXAMPLES "Build example applications" ON)
+option(ENABLE_INTEROP_TESTS "Build the serialization and interoperability test applications" OFF)
 option(ENABLE_TOOLS "Build diagnostic tools" ON)
 option(ENABLE_SOMEIP_IPC "Enable extended SOME/IP IPC routing support" OFF)
 
@@ -211,6 +212,10 @@ endif()
 if(ENABLE_EXAMPLES)
     add_subdirectory(${LGSOMEIP_SOURCE_DIR}/examples/someip/simple-event ${LGSOMEIP_BINARY_DIR}/examples/someip/simple-event)
     add_subdirectory(${LGSOMEIP_SOURCE_DIR}/examples/someip/simple-method ${LGSOMEIP_BINARY_DIR}/examples/someip/simple-method)
+endif()
+
+if(ENABLE_INTEROP_TESTS)
+    add_subdirectory(${LGSOMEIP_SOURCE_DIR}/tests/interop ${LGSOMEIP_BINARY_DIR}/tests/interop)
 endif()
 
 if(ENABLE_TEST_BUILD AND BUILD_TESTING)
